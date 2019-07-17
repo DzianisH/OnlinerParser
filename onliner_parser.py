@@ -27,7 +27,7 @@ def fetch_products(links):
 def sort_cols(df):
     cols = [*df.axes[1]]
     ordered_cols = ['iPhone URL', 'Title', 'Description', 'H1', 'Img URL', 'Img Title',
-                    'Img Alt', 'Code review', 'Description in content', 'Prices']
+                    'Img Alt', 'Code review', 'Description in content', 'Prices', 'Снят с производства']
 
     for col in ordered_cols:
         cols.remove(col)
@@ -70,6 +70,9 @@ def parse_main_attributes(url, html):
         return res[0]
 
     img_html = apply_pattern(img_pattern)
+    out_of_product = ' '
+    if pq(html)('span.js-title'):
+        out_of_product = 'ДА'
 
     return {
         'iPhone URL': url,
@@ -82,6 +85,7 @@ def parse_main_attributes(url, html):
         'Code review': 'TODO: Грузится динамически',
         'Description in content': apply_pattern(descr_in_content_pattern),
         'Prices': apply_pattern(low_prices_pattern) + ' - ' + apply_pattern(high_prices_pattern),
+        'Снят с производства': out_of_product
     }
 
 
