@@ -21,7 +21,18 @@ def fetch_products(links):
         html = read_page(link)
         df = parse_page(link, html, df)
         print("{:.2f}% parsed".format((index+1) * 100 / len(links)))
-    return df
+    return sort_cols(df)
+
+
+def sort_cols(df):
+    cols = [*df.axes[1]]
+    ordered_cols = ['iPhone URL', 'Title', 'Description', 'H1', 'Img URL', 'Img Title',
+                    'Img Alt', 'Code review', 'Description in content', 'Prices']
+
+    for col in ordered_cols:
+        cols.remove(col)
+
+    return df[ordered_cols + cols]
 
 
 def read_page(address):
