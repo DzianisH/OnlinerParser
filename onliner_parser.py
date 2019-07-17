@@ -46,7 +46,8 @@ high_prices_pattern = re.compile(r'itemprop="highPrice">(.*)<')
 def parse_page(url, html, df):
     return df.append({
         **parse_main_attributes(url, html),
-        **parse_switchers(html)
+        **parse_switchers(html),
+        **parse_specs(html)
     }, ignore_index=True)
 
 
@@ -78,7 +79,7 @@ def parse_switchers(html):
     rows = {}
     for switch in switchers:
         switch = pq(switch)
-        name = switch('.offers-description-filter__sign').text()
+        name = 'other options/' + switch('.offers-description-filter__sign').text()
         links = []
 
         for a in switch('a.offers-description-filter-control'):
@@ -89,3 +90,28 @@ def parse_switchers(html):
         rows[name] = links
 
     return rows
+
+
+#TODO: refactor, it takes lots of time
+def parse_specs(html):
+    table = pq(html)('table.product-specs__table')
+    result_map = {}
+
+    for tbody in table('tbody'):
+        tbody = pq(tbody)
+        tr = tbody('tr')
+        col_prefix = 'specs/' + tbody('tr > td[colspan="2"] > div').text() + '/'
+        for i in range(1, tr.length):
+            td = pq(tr[i])('td')
+            key = td.clone().children().remove().end().text()
+            value_span = td.next()('span')
+            value = value_span.text()
+            if value is None or len(value.strip()) == 0:
+                if value_span.has_class('i-tip'):
+                    value = 'ДА'
+                elif value_span.has_class('i-x'):
+                    value = 'НЕТ'
+            result_map[col_prefix + key] = value
+
+    return result_map
+
