@@ -1,5 +1,6 @@
 import re
 import urllib
+from threading import Thread
 
 import pandas as pd
 from pyquery import PyQuery as pq
@@ -18,7 +19,7 @@ def fetch_links(html):
 def fetch_products(links):
     df = pd.DataFrame()
     for index, link in enumerate(links):
-        html = read_page(link)
+        html = read_url(link).decode("utf8")
         df = parse_page(link, html, df)
         print("{:.2f}% parsed".format((index+1) * 100 / len(links)))
     return sort_cols(df)
@@ -35,11 +36,11 @@ def sort_cols(df):
     return df[ordered_cols + cols]
 
 
-def read_page(address):
+def read_url(address):
     fp = urllib.request.urlopen(address)
     mybytes = fp.read()
     fp.close()
-    return mybytes.decode("utf8")
+    return mybytes
 
 
 h1_pattern = re.compile(r'<h1 class="catalog-masthead__title" itemprop="name">\n *(.+?) *\n')
@@ -74,12 +75,14 @@ def parse_main_attributes(url, html):
     if pq(html)('span.js-title'):
         out_of_product = 'ДА'
 
+    img_url = apply_pattern(img_url_pattern, img_html)
+    download_img(img_url)
     return {
         'iPhone URL': url,
         'Title': apply_pattern(title_pattern),
         'Description': apply_pattern(shirt_descr_pattern),
         'H1': apply_pattern(h1_pattern),
-        'Img URL': apply_pattern(img_url_pattern, img_html),
+        'Img URL': img_url,
         'Img Title': apply_pattern(img_title_pattern, img_html),
         'Img Alt': apply_pattern(img_alt_pattern, img_html),
         'Code review': 'TODO: Грузится динамически',
@@ -130,3 +133,15 @@ def parse_specs(html):
 
     return result_map
 
+
+def download_img(url):
+    def download_thread():
+        img_name = url.split('/')[-1]
+        bytes = read_url(url)
+        f = open('out/imgs/' + img_name, 'wb')
+        f.write(bytes)
+        f.close()
+
+    thread = Thread(target=download_thread)
+    thread.setDaemon(False)
+    thread.start()
