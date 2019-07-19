@@ -5,6 +5,8 @@ from threading import Thread
 import pandas as pd
 from pyquery import PyQuery as pq
 
+from stemmer import Porter
+
 
 def fetch_links(html):
     pattern = re.compile(r'<div class="schema-product__title">.*\n.*href="(.*)">', re.MULTILINE)
@@ -110,7 +112,7 @@ def parse_switchers(html):
     return rows
 
 
-#TODO: refactor, it takes lots of time
+# TODO: refactor, it takes lots of time
 def parse_specs(html):
     table = pq(html)('table.product-specs__table')
     result_map = {}
@@ -129,6 +131,7 @@ def parse_specs(html):
                     value = 'ДА'
                 elif value_span.has_class('i-x'):
                     value = 'НЕТ'
+            key, value = unify_units(key, value)
             result_map[col_prefix + key] = value
 
     return result_map
@@ -145,3 +148,91 @@ def download_img(url):
     thread = Thread(target=download_thread)
     thread.setDaemon(False)
     thread.start()
+
+
+space_split_pattern = re.compile(r'[\s]+')
+
+
+def unify_units(column, value):
+    lower_column = column.lower()
+    if lower_column.find('время') > -1:
+        return unify_time_units(column, value)
+    elif lower_column.find('длина') > -1 \
+            or lower_column.find('толщина') > -1\
+            or lower_column.find('ширина') > -1:
+        return unity_length_units(column, value)
+    elif lower_column.find('память') > -1:
+        return unify_memory_units(column, value)
+    # elif lower_column.find('частот') > -1:  2 490 Мгц
+    #     return unify_freq_units(column, value)
+    elif lower_column.find('вес') > -1:
+        return unify_weight_units(column, value)
+    return column, value
+
+
+def unify_time_units(column, value):
+    units_map = {
+        'недел': 7 * 24,
+        'ден': 24,
+        'дне': 24,
+        'дня': 24,
+        'дням': 24,
+        'суток': 24,
+        'сутк': 24,
+        'час': 1,
+        'минут': 1 / 60
+    }
+
+    return column + ' (часов)', sum_up_units(units_map, value)
+
+
+def unify_memory_units(column, value):
+    units_map = {
+        'тб': 1024,
+        'гб': 1,
+        'мб': 1 / 1024,
+        'кб': 1 / (1024 * 1024),
+    }
+
+    return column + ' (ГБ)', sum_up_units(units_map, value)
+
+
+def unify_freq_units(column, value):
+    units_map = {
+        'ггц': 1000,
+        'мгц': 1,
+        'кгц': 1 / 1000,
+    }
+
+    return column + ' (МГц)', sum_up_units(units_map, value)
+
+
+def unify_weight_units(column, value):
+    units_map = {
+        'кг': 1000,
+        'г': 1,
+        'мг': 1 / 1000,
+    }
+
+    return column + ' (грамм)', sum_up_units(units_map, value)
+
+
+def unity_length_units(column, value):
+    units_map = {
+        'мм': 0.1,
+        'см': 1,
+        'дм': 10,
+        'м': 100,
+    }
+
+    return column + ' (см)', sum_up_units(units_map, value)
+
+
+def sum_up_units(units_map, value):
+    value = value.strip()
+    unified_value = 0
+    for chunk in value.split(', '):
+        val, unit = space_split_pattern.split(chunk)
+        val = float(val)
+        unified_value += val * units_map[Porter.stem(unit)]
+    return unified_value
