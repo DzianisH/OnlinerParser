@@ -28,7 +28,12 @@ class Porter:
         word = word.lower()
         word = word.replace(u'ё', u'е')
         m = re.match(Porter.RVRE, word)
-        if m.groups():
+        try:
+            has_groups = m.groups()
+        except:
+            has_groups = False
+
+        if has_groups:
             pre = m.group(1)
             rv = m.group(2)
             temp = Porter.PERFECTIVEGROUND.sub('', rv, 1)
