@@ -231,8 +231,11 @@ def unity_length_units(column, value):
 def sum_up_units(units_map, value):
     value = value.strip()
     unified_value = 0
-    for chunk in value.split(', '):
-        val, unit = space_split_pattern.split(chunk)
-        val = float(val)
-        unified_value += val * units_map[Porter.stem(unit)]
-    return unified_value
+    try:
+        for chunk in value.split(', '):
+            val, unit = space_split_pattern.split(chunk)
+            val = float(val)
+            unified_value += val * units_map[Porter.stem(unit)]
+    except:
+        print('wtf has been faced while parsing', value)
+    return value
