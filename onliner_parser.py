@@ -238,4 +238,5 @@ def sum_up_units(units_map, value):
             unified_value += val * units_map[Porter.stem(unit)]
     except:
         print('wtf has been faced while parsing', value)
-    return value
+        unified_value = value
+    return unified_value
