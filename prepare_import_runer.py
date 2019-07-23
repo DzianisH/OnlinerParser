@@ -3,7 +3,7 @@ import pandas as pd
 
 name_map = {
     'id': 'Артикул',
-    'H1': 'Имя',
+    'Title': 'Имя',
     'Description': 'Короткое описание',
     'Description in content': 'Описание',
     'specs/Размеры и вес/Вес  (грамм)': 'Вес (kg)',
@@ -31,6 +31,25 @@ for src, dest in name_map.items():
     df_out[dest] = df_in[src]
     if dest in transformers:
         df_out[dest] = df_out[dest].apply(data_transformers[dest])
+
+imported = 0
+skipped = 0
+for index, spec in enumerate(list(filter(lambda x: x.startswith('specs/'), df_in.keys()))):
+    index = str(index + 1)
+    name = spec.split('/')[-1].strip()
+    if len(name) < 4:
+        name = spec.split('/')[-2].strip() + '/' + name
+    if len(name) > 25:
+        skipped += 1
+    else:
+        df_out['Имя атрибута ' + index] = name
+        df_out['Значение(-я) аттрибута(-ов) ' + index] = df_in[spec]
+        df_out['Видимость атрибута ' + index] = 1
+        df_out['Глобальный атрибут ' + index] = 1
+        imported += 1
+    print(len(name), name)
+
+print('\nimported attributes:', imported, 'skipped attributes:', skipped)
 
 
 df_out.to_csv('out/wp_iphones.csv')
