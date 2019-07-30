@@ -120,10 +120,14 @@ def parse_specs(html):
     for tbody in table('tbody'):
         tbody = pq(tbody)
         tr = tbody('tr')
-        col_prefix = 'specs/' + tbody('tr > td[colspan="2"] > div').text() + '/'
+        col_prefix = 'specs/' + pq(tbody('tr > td[colspan="2"] > div')[0]).text() + '/'
         for i in range(1, tr.length):
             td = pq(tr[i])('td')
+            if td('div.i-faux-td').length > 0:
+                continue  # Описание
             key = td.clone().children().remove().end().text()
+            if key.find('а получила возможность снимать 240 кадров/с с разрешением 1920х1080') > -1:
+                print('break')
             value_span = td.next()('span')
             value = value_span.text()
             if value is None or len(value.strip()) == 0:
@@ -150,9 +154,6 @@ def download_img(url):
     thread.start()
 
 
-space_split_pattern = re.compile(r'[\s]+')
-
-
 def unify_units(column, value):
     lower_column = column.lower()
     if lower_column.find('время') > -1:
@@ -163,10 +164,26 @@ def unify_units(column, value):
         return unity_length_units(column, value)
     elif lower_column.find('память') > -1:
         return unify_memory_units(column, value)
-    # elif lower_column.find('частот') > -1:  2 490 Мгц
-    #     return unify_freq_units(column, value)
+    elif lower_column.find('частот') > -1:
+        return unify_freq_units(column, value)
+    elif lower_column.find('мкост') > -1:
+        return unity_capacity_units(column, value)
     elif lower_column.find('вес') > -1:
         return unify_weight_units(column, value)
+    elif lower_column.find('кадров в секунду') > -1:
+        return unity_shots_units(column, value)
+    elif lower_column.find('фронтальная камера') > -1 or lower_column.find('точек матрицы') > -1:
+        return unity_camera_units(column, value)
+    elif lower_column.find('техпроцесс') > -1:
+        return unity_tech_proc_units(column, value)
+    elif lower_column.find('количество цветов') > -1:
+        return unity_colors_units(column, value)
+    elif lower_column.find('разрешающая') > -1:
+        return unity_ppi_units(column, value)
+    elif lower_column.find('зум') > -1:
+        return unity_zoom_units(column, value)
+    elif lower_column.find('разрядность') > -1:
+        return unity_arch_units(column, value)
     return column, value
 
 
@@ -228,8 +245,84 @@ def unity_length_units(column, value):
     return column + ' (см)', sum_up_units(units_map, value)
 
 
+def unity_capacity_units(column, value):
+    units_map = {
+        'ма·ч': 1,
+    }
+
+    return column + ' (мА·ч)', sum_up_units(units_map, value)
+
+
+def unity_shots_units(column, value):
+    units_map = {
+        'кадров/с': 1,
+    }
+
+    return column + ' (кадров/с)', sum_up_units(units_map, value)
+
+
+def unity_camera_units(column, value):
+    units_map = {
+        'мп': 1,
+    }
+
+    return column + ' (Мп)', sum_up_units(units_map, value)
+
+
+def unity_tech_proc_units(column, value):
+    units_map = {
+        'нм': 1,
+    }
+
+    return column + ' (нм)', sum_up_units(units_map, value)
+
+
+def unity_colors_units(column, value):
+    units_map = {
+        'млн': 1,
+    }
+
+    return column + ' (млн)', sum_up_units(units_map, value)
+
+
+def unity_ppi_units(column, value):
+    units_map = {
+        'ppi': 1,
+    }
+
+    return column + ' (ppi)', sum_up_units(units_map, value)
+
+
+def unity_zoom_units(column, value):
+    units_map = {
+        'x': 1,
+        'х': 1,
+    }
+
+    return column + ' (Х)', sum_up_units(units_map, value)
+
+
+def unity_arch_units(column, value):
+    units_map = {
+        'бит': 1,
+        'байт': 8,
+    }
+
+    return column + ' (Бит)', sum_up_units(units_map, value)
+
+
+space_split_pattern = re.compile(r'[\s]+')
+space_delimiter_pattern = re.compile(r'([\d]+)[\s]+([\d]+)')
+
+
 def sum_up_units(units_map, value):
     value = value.strip()
+    while True:
+        new_value = space_delimiter_pattern.sub(r'\1\2', value)
+        if new_value == value:
+            break
+        value = new_value
+
     unified_value = 0
     try:
         for chunk in value.split(', '):
