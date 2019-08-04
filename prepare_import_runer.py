@@ -62,7 +62,7 @@ def join_attributes(df_out, df_in):
     configs = (
         {
             SRC: ('specs/Аккумулятор и время работы/Время ожидания (часов)', 'specs/Аккумулятор и время работы/Время разговора (часов)'),
-            DEST: 'Время разговара/ожидания (часов)',
+            DEST: 'Время разговор/ожидан (ч)', #wtf
             SEP: '/',
             FILTER: lambda x, y: math.isnan(x) or math.isnan(y),
             PATTERN: '%.0f%s%.0f'
@@ -75,7 +75,7 @@ def join_attributes(df_out, df_in):
         },
         {
             SRC: ('specs/Основные/Оперативная память  (ГБ)', 'specs/Основные/Флэш-память  (ГБ)'),
-            DEST: 'Память оперативная/флэш (ГБ)',
+            DEST: 'Память рабочая/флэш (ГБ)',
             SEP: '/',
             FILTER: lambda x, y: math.isnan(x) or math.isnan(y),
             PATTERN: '%d%s%d'
