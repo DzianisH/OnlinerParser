@@ -9,9 +9,10 @@ df_out = pd.DataFrame()
 def copy_paste_attributes(df_out, df_in):
     copy_paste_map = {
         'id': 'Артикул',
-        'Title': 'Имя',
-        'Description': 'Короткое описание',
+  #      'Title': '', # title в <head> имя страницы
+   #     'Description': '', # description в <head>
         'Description in content': 'Описание',
+    #    'iPhone URL': '', #
         'specs/Размеры и вес/Вес  (грамм)': 'Вес (kg)',
         'specs/Размеры и вес/Длина  (см)': 'Длина (cm)',
         'specs/Размеры и вес/Толщина  (см)': 'Ширина (cm)',
@@ -51,6 +52,14 @@ def copy_paste_attributes(df_out, df_in):
 #         df_out['Глобальный атрибут ' + index] = 1
 #     print(len(name), name)
 
+def combiner(x, y):
+    if x is None or len(x) == 0:
+        if y is None or len(y) == 0:
+            return ''
+        return y
+    elif y is None or len(y) == 0:
+        return x
+    return "%s, %s" % (x, y)
 
 def join_attributes(df_out, df_in):
     SRC = 'src'
@@ -149,14 +158,6 @@ def join_flags(df_out, df_in):
             return ''
         return mapper1
 
-    def combiner(x, y):
-        if x is None or len(x) == 0:
-            if y is None or len(y) == 0:
-                return ''
-            return y
-        elif y is None or len(y) == 0:
-            return x
-        return "%s, %s" % (x, y)
 
     for config in configs:
         values = None
@@ -169,13 +170,232 @@ def join_flags(df_out, df_in):
         values = values.apply(lambda str: str[0:1].upper() + str[1:])
         add_global_attribute(df_out, config[DEST], values)
 
+def map_join_attributes(df_out, df_in):
+    SRC = 'src'
+    DEST = 'dest'
+    COLUMN = 'column'
+    MAPPER = 'mapper'
+
+    def dust_and_water(value):
+        if 'НЕТ' == value:
+            return None
+        return "пыле- и влагозащита (%s)" % value.strip()
+
+    def num_of_main_cameras(value):
+        if value > 1:
+            return "основных камер: %dшт" % value
+        return None
+
+    def mp(value):
+        value = str(value)
+        if value is not None and len(value) > 0 and value != 'nan':
+            return "%s Мп" % value
+        return None
+
+    def diagram(value):
+        value = str(value)
+        if value is not None and len(value) > 0 and value != 'nan':
+            return "диафрагма: " + value
+        return None
+
+    def filter_empty(value):
+        value = str(value)
+        if value is not None and len(value) > 0 and value != 'nan':
+            return value
+        return None
+
+    def video_resolution(value):
+        value = str(value)
+        if value is not None and len(value) > 0 and value != 'nan':
+            return "разрешение видео до " + value
+        return None
+
+    def optical_zoom(value):
+        if value is not None and not math.isnan(value) > 0:
+            return "оптический зум x%d" % value
+        return None
+
+    def screen_protect(value):
+        if value == 'ДА':
+            return 'защита от царапин'
+        return None
+
+    def frequency(value):
+        if value is not None and not math.isnan(value):
+            return '%dМГц' % value
+        return None
+
+    def gpu(value):
+        value = str(value)
+        if value is not None and len(value) > 0 and value != 'nan':
+            return 'GPU: ' + value
+        return None
+
+    def gpu_frequency(value):
+        if value is not None and not math.isnan(value):
+            return 'частота GPU: %d' % value
+        return None
+
+    configs = (
+        {
+            SRC: (
+                {
+                    COLUMN: 'specs/Конструкция/Конструкция корпуса ',
+                    MAPPER: lambda str: "конструкция: " + str
+                },
+                {
+                    COLUMN: 'specs/Конструкция/Материал корпуса ',
+                    MAPPER: lambda str: str.replace(', ', ' и ')
+                },
+                {
+                    COLUMN: 'specs/Конструкция/Пыле- и влагозащита ',
+                    MAPPER: dust_and_water
+                },
+                {
+                    COLUMN: 'specs/Конструкция/Цвет корпуса ',
+                },
+            ),
+            DEST: 'Конструкция'
+        },
+        {
+            SRC: (
+                {
+                    COLUMN: 'specs/Основные/Количество точек матрицы  (Мп)',
+                    MAPPER: mp
+                },
+                {
+                    COLUMN: 'specs/Основные/Количество основных камер ',
+                    MAPPER: num_of_main_cameras
+                },
+                {
+                    COLUMN: 'specs/Основные/Максимальное разрешение видео ',
+                    MAPPER: video_resolution
+                },
+                {
+                    COLUMN: 'specs/Основная камера/Диафрагма основной камеры ',
+                    MAPPER: diagram
+                },
+                {
+                    COLUMN: 'specs/Основная камера/Дополнительные модули камеры ',
+                    MAPPER: filter_empty
+                },
+                {
+                    COLUMN: 'specs/Основная камера/Оптический зум  (Х)',
+                    MAPPER: optical_zoom
+                },
+            ),
+            DEST: 'Основная камера'
+        },
+        {
+            SRC: (
+                {
+                    COLUMN: 'specs/Фронтальная камера/Фронтальная камера  (Мп)',
+                    MAPPER: mp
+                },
+                {
+                    COLUMN: 'specs/Фронтальная камера/Максимальное разрешение видео ',
+                    MAPPER: video_resolution
+                },
+                {
+                    COLUMN: 'specs/Фронтальная камера/Диафрагма ',
+                    MAPPER: diagram
+                },
+            ),
+            DEST: 'Фронтальная камера'
+        },
+        {
+            SRC: (
+                {
+                    COLUMN: 'specs/Основные/Размер экрана ',
+                    MAPPER: lambda val: 'размер экрана ' + val
+                },
+                {
+                    COLUMN: 'specs/Основные/Разрешение экрана ',
+                    MAPPER: lambda str: str + " точек"
+                },
+                {
+                    COLUMN: 'specs/Экран/Технология экрана ',
+                },
+                {
+                    COLUMN: 'specs/Экран/Количество цветов экрана  (млн)',
+                    MAPPER: lambda val: str(val) + "млн. цветов"
+                },
+                {
+                    COLUMN: 'specs/Экран/Соотношение сторон ',
+                },
+                {
+                    COLUMN: 'specs/Экран/Разрешающая способность экрана  (ppi)',
+                    MAPPER: lambda val: str(val) + "ppi"
+                },
+                {
+                    COLUMN: 'specs/Экран/Защита от царапин ',
+                    MAPPER: screen_protect
+                },
+            ),
+            DEST: 'Экран'
+        },
+        {
+            SRC: (
+                {
+                    COLUMN: 'specs/Процессор/Процессор ',
+                },
+                {
+                    COLUMN: 'specs/Процессор/Разрядность процессора  (Бит)',
+                    MAPPER: lambda val: '%d бита' % val
+                },
+                {
+                    COLUMN: 'specs/Процессор/Тактовая частота процессора  (МГц)',
+                    MAPPER: frequency
+                },
+                {
+                    COLUMN: 'specs/Процессор/Количество ядер ',
+                    MAPPER: lambda val: str(val) + ' ядер'
+                },
+                {
+                    COLUMN: 'specs/Процессор/Техпроцесс  (нм)',
+                    MAPPER: lambda val: "на техпроцессе %dнм" % val
+                },
+
+                {
+                    COLUMN: 'specs/Процессор/Графический ускоритель ',
+                    MAPPER: gpu
+                },
+                {
+                    COLUMN: 'specs/Процессор/Частота ГПУ  (МГц)',
+                    MAPPER: gpu_frequency
+                },
+            ),
+            DEST: 'Процессор и ГПУ'
+        },
+    )
+
+    def post_proccess_row(row):
+        if row is None or len(row.strip()) == 0:
+            return None
+        return row[0].upper() + row[1:]
+
+    for config in configs:
+        values = None
+        for src in config[SRC]:
+            col = df_in[src[COLUMN]]
+            if src.get(MAPPER) is not None:  # Fix no value error
+                col = col.apply(src.get(MAPPER))
+            if values is None:
+                values = col
+            else:
+                values = values.combine(col, combiner)
+        values = values.apply(post_proccess_row)
+        add_global_attribute(df_out, config[DEST], values)
+
+
+
 attr_index = 0
 def add_global_attribute(df_out, name, values):
     global attr_index
     index = str(attr_index)
     df_out['Имя атрибута ' + index] = name
     df_out['Значение(-я) аттрибута(-ов) ' + index] = values
-    df_out['Видимость атрибута ' + index] = 1
+    df_out['Видимость атрибута ' + index] = values.apply(lambda row: 1 - (row is None))
     df_out['Глобальный атрибут ' + index] = 1
     attr_index += 1
 
@@ -192,6 +412,9 @@ print('join_attributes done')
 
 join_flags(df_out, df_in)
 print('join_flags done')
+
+map_join_attributes(df_out, df_in)
+print('map_join_attributes done')
 
 df_out.to_csv('out/wp_iphones.csv')
 
