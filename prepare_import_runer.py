@@ -7,36 +7,39 @@ df_out = pd.DataFrame()
 
 
 def copy_paste_attributes(df_out, df_in):
-    copy_paste_map = {
-        'id': 'Артикул',
-  #      'Title': '', # title в <head> имя страницы
-   #     'Description': '', # description в <head>
-        'Description in content': 'Описание',
-    #    'iPhone URL': '', #
-        'specs/Размеры и вес/Вес  (грамм)': 'Вес (kg)',
-        'specs/Размеры и вес/Длина  (см)': 'Длина (cm)',
-        'specs/Размеры и вес/Толщина  (см)': 'Ширина (cm)',
-        'specs/Размеры и вес/Ширина  (см)': 'Высота (cm)',
-        'Цена (руб)': 'Базовая цена',
-        'Img URL': 'Изображения',
-        'specs/Аккумулятор и время работы/Емкость аккумулятора (мА·ч)': 'Емкость аккумулятора (мА·ч)',
-        'specs/Основные/Версия операционной системы ': 'Операционная система',
-    }
+    SRC = 'src'
+    DEST = 'dest'
+    TRF = 'transformer'
+    GLOBAL = 'global'
 
     coma_to_dot_notation = lambda str: str.replace(',', '.')
-    copy_paste_transformers = {
-        'Вес (kg)': lambda val: val / 1000,
-        'Изображения': lambda val: 'https://temp.kupitiphone.by' + val,
-        'Длина (cm)': coma_to_dot_notation,
-        'Ширина (cm)': coma_to_dot_notation,
-        'Высота (cm)': coma_to_dot_notation,
-    }
 
-    transformers = copy_paste_transformers.keys()
-    for src, dest in copy_paste_map.items():
-        df_out[dest] = df_in[src]
-        if dest in transformers:
-            df_out[dest] = df_out[dest].apply(copy_paste_transformers[dest])
+    configs = (
+        {SRC: 'iPhone URL', DEST: 'Артикул', TRF: lambda url: url.split('/')[-2]},
+        {SRC: 'H1', DEST: 'Имя', TRF: lambda str: str.replace(' в Гомеле', '')},
+        {SRC: 'iPhone URL', DEST: 'Ярлык', TRF: lambda url: url.replace(
+            'https://kupitiphone.by/', 'https://temp.kupitiphone.by/') },
+  #      'Title': '', # title в <head> имя страницы
+   #     'Description': '', # description в <head>
+        {SRC: 'Description in content', DEST: 'Короткое описание'},
+        {SRC: 'specs/Размеры и вес/Вес  (грамм)', DEST: 'Вес (kg)', TRF: lambda val: val / 1000},
+        {SRC: 'specs/Размеры и вес/Длина  (см)', DEST: 'Длина (cm)', TRF: coma_to_dot_notation},
+        {SRC: 'specs/Размеры и вес/Толщина  (см)', DEST: 'Ширина (cm)', TRF: coma_to_dot_notation},
+        {SRC: 'specs/Размеры и вес/Ширина  (см)', DEST: 'Высота (cm)', TRF: coma_to_dot_notation},
+        {SRC: 'Цена (руб)', DEST: 'Базовая цена'},
+        {SRC: 'specs/Аккумулятор и время работы/Емкость аккумулятора (мА·ч)', DEST: 'Емкость аккумулятора (мА·ч)', GLOBAL: True},
+        {SRC: 'specs/Основные/Версия операционной системы ', DEST: 'Операционная система', GLOBAL: True},
+    )
+
+
+    for config in configs:
+        values = df_in[config[SRC]]
+        if config.get(TRF) is not None:
+            values = values.apply(config[TRF])
+        if config.get(GLOBAL) is True:
+            add_global_attribute(df_out, config[DEST], values)
+        else:
+            df_out[config[DEST]] = values
 
     return df_out
 
