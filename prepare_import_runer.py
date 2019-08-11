@@ -1,4 +1,7 @@
 import math
+from shutil import copyfile
+import datetime
+import base64
 
 import pandas as pd
 
@@ -18,19 +21,19 @@ def copy_paste_attributes(df_out, df_in):
         {SRC: 'iPhone URL', DEST: 'Артикул', TRF: lambda url: url.split('/')[-2]},
         {SRC: 'H1', DEST: 'Имя', TRF: lambda str: str.replace(' в Гомеле', '')},
         {SRC: 'iPhone URL', DEST: 'Ярлык', TRF: lambda url: url.replace(
-            'https://kupitiphone.by/', 'https://temp.kupitiphone.by/') },
-  #      'Title': '', # title в <head> имя страницы
-   #     'Description': '', # description в <head>
+            'https://kupitiphone.by/', 'https://temp.kupitiphone.by/')},
+        #      'Title': '', # title в <head> имя страницы
+        #     'Description': '', # description в <head>
         {SRC: 'Description in content', DEST: 'Короткое описание'},
         {SRC: 'specs/Размеры и вес/Вес  (грамм)', DEST: 'Вес (kg)', TRF: lambda val: val / 1000},
         {SRC: 'specs/Размеры и вес/Длина  (см)', DEST: 'Длина (cm)', TRF: coma_to_dot_notation},
         {SRC: 'specs/Размеры и вес/Толщина  (см)', DEST: 'Ширина (cm)', TRF: coma_to_dot_notation},
         {SRC: 'specs/Размеры и вес/Ширина  (см)', DEST: 'Высота (cm)', TRF: coma_to_dot_notation},
         {SRC: 'Цена (руб)', DEST: 'Базовая цена'},
-        {SRC: 'specs/Аккумулятор и время работы/Емкость аккумулятора (мА·ч)', DEST: 'Емкость аккумулятора (мА·ч)', GLOBAL: True},
+        {SRC: 'specs/Аккумулятор и время работы/Емкость аккумулятора (мА·ч)', DEST: 'Емкость аккумулятора (мА·ч)',
+         GLOBAL: True},
         {SRC: 'specs/Основные/Версия операционной системы ', DEST: 'Операционная система', GLOBAL: True},
     )
-
 
     for config in configs:
         values = df_in[config[SRC]]
@@ -42,6 +45,7 @@ def copy_paste_attributes(df_out, df_in):
             df_out[config[DEST]] = values
 
     return df_out
+
 
 # for index, spec in enumerate(list(filter(lambda x: x.startswith('specs/'), df_in.keys()))):
 #     index = str(index + 1)
@@ -64,6 +68,7 @@ def combiner(x, y):
         return x
     return "%s, %s" % (x, y)
 
+
 def join_attributes(df_out, df_in):
     SRC = 'src'
     DEST = 'dest'
@@ -73,8 +78,9 @@ def join_attributes(df_out, df_in):
 
     configs = (
         {
-            SRC: ('specs/Аккумулятор и время работы/Время ожидания (часов)', 'specs/Аккумулятор и время работы/Время разговора (часов)'),
-            DEST: 'Время разговор/ожидан (ч)', #wtf
+            SRC: ('specs/Аккумулятор и время работы/Время ожидания (часов)',
+                  'specs/Аккумулятор и время работы/Время разговора (часов)'),
+            DEST: 'Время разговор/ожидан (ч)',  # wtf
             SEP: '/',
             FILTER: lambda x, y: math.isnan(x) or math.isnan(y),
             PATTERN: '%.0f%s%.0f'
@@ -103,6 +109,7 @@ def join_attributes(df_out, df_in):
             if x is None or y is None or filter(x, y):
                 return None
             return config[PATTERN] % (x, config[SEP], y)
+
         return join
 
     for config in configs:
@@ -113,6 +120,7 @@ def join_attributes(df_out, df_in):
             else:
                 values = values.combine(df_in[column], joiner(config))
         add_global_attribute(df_out, config[DEST], values)
+
 
 def join_flags(df_out, df_in):
     SRC = 'src'
@@ -159,8 +167,8 @@ def join_flags(df_out, df_in):
             if src == 'ДА':
                 return column
             return ''
-        return mapper1
 
+        return mapper1
 
     for config in configs:
         values = None
@@ -172,6 +180,7 @@ def join_flags(df_out, df_in):
                 values = values.combine(col, combiner)
         values = values.apply(lambda str: str[0:1].upper() + str[1:])
         add_global_attribute(df_out, config[DEST], values)
+
 
 def map_join_attributes(df_out, df_in):
     SRC = 'src'
@@ -391,8 +400,37 @@ def map_join_attributes(df_out, df_in):
         add_global_attribute(df_out, config[DEST], values)
 
 
+def add_images(df_out, df_in):
+    now = datetime.datetime.now()
+    IMGS_IN_FOLDER = 'in/imgs/'
+    IMGS_OUT_FOLDER = 'out/wp_imgs/'
+    IMGS_URL_PREFIX = 'https://temp.kupitiphone.by/wp-content/uploads/%d/%02d/' % (now.year, now.month)
+
+    DEST = 'Изображения'
+    SRC = 'Img URL'
+    IMG_TITLE = 'Img Title'
+    IMG_ALT = 'Img Alt'
+
+    src_imgs = df_in[SRC].apply(lambda link: link.split('/')[-1])
+    target_props = df_in[IMG_TITLE].combine(df_in[IMG_ALT],
+                                            lambda x, y: '%s###%s' % (x.strip(), y.strip()))
+    target_props = target_props.apply(lambda props: base64.encodebytes(props.encode('utf-8'))
+                                      .decode("utf-8").strip()
+                                      .replace('/', '#').replace('=', '')
+                                      .replace('\n', ''))
+
+    def copy_img(src_name, prop):
+        ext = src_name.split('.')[-1]
+        dest_name = prop + '.' + ext
+        copyfile(IMGS_IN_FOLDER + src_name, IMGS_OUT_FOLDER + dest_name)
+        return IMGS_URL_PREFIX + dest_name
+
+    df_out[DEST] = src_imgs.combine(target_props, copy_img)
+
 
 attr_index = 0
+
+
 def add_global_attribute(df_out, name, values):
     global attr_index
     index = str(attr_index)
@@ -410,6 +448,9 @@ print('data prepared')
 copy_paste_attributes(df_out, df_in)
 print('copy_paste_attributes done')
 
+add_images(df_out, df_in)
+print('add_images done')
+
 join_attributes(df_out, df_in)
 print('join_attributes done')
 
@@ -420,6 +461,3 @@ map_join_attributes(df_out, df_in)
 print('map_join_attributes done')
 
 df_out.to_csv('out/wp_iphones.csv')
-
-
-
