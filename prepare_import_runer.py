@@ -25,6 +25,7 @@ def copy_paste_attributes(df_out, df_in):
         #      'Title': '', # title в <head> имя страницы
         #     'Description': '', # description в <head>
         {SRC: 'Description in content', DEST: 'Короткое описание'},
+        {SRC: 'Description', DEST: 'Мета: _yoast_wpseo_metadesc'},
         {SRC: 'specs/Размеры и вес/Вес  (грамм)', DEST: 'Вес (kg)', TRF: lambda val: val / 1000},
         {SRC: 'specs/Размеры и вес/Длина  (см)', DEST: 'Длина (cm)', TRF: coma_to_dot_notation},
         {SRC: 'specs/Размеры и вес/Толщина  (см)', DEST: 'Ширина (cm)', TRF: coma_to_dot_notation},
